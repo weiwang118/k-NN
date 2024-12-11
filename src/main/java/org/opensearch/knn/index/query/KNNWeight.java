@@ -145,6 +145,12 @@ public class KNNWeight extends Weight {
             Map<Integer, Float> result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k);
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
+        /*
+         * If filters match all docs in this segment, then there is no need to do any extra step
+         * and should directly do ANN Search*/
+        if (filterWeight != null && cardinality == maxDoc) {
+            return doANNSearch(context, new FixedBitSet(0), 0, k);
+        }
         Map<Integer, Float> docIdsToScoreMap = doANNSearch(context, filterBitSet, cardinality, k);
         // See whether we have to perform exact search based on approx search results
         // This is required if there are no native engine files or if approximate search returned
@@ -320,6 +326,7 @@ public class KNNWeight extends Weight {
         // Now that we have the allocation, we need to readLock it
         indexAllocation.readLock();
         indexAllocation.incRef();
+
         try {
             if (indexAllocation.isClosed()) {
                 throw new RuntimeException("Index has already been closed");
